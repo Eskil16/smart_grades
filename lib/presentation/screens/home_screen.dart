@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/grade_utils.dart';
 import '../../data/models/student_model.dart';
 import '../providers/students_provider.dart';
 import '../widgets/stat_card.dart';
 import 'add_student_screen.dart';
+import 'add_session_screen.dart';
 import 'student_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -37,9 +37,23 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<StudentsProvider>().activeSession;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppConstants.appName),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              session?.name ?? 'Smart Grades',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            if (session != null)
+              Text(
+                session.academicYear,
+                style: const TextStyle(fontSize: 11, color: Colors.white70),
+              ),
+          ],
+        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -51,6 +65,20 @@ class _HomeScreenState extends State<HomeScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit session',
+            onPressed: () {
+              if (session != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddSessionScreen(existingSession: session),
+                  ),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.file_download_outlined),
             tooltip: 'Export',
@@ -98,7 +126,6 @@ class _StudentsTab extends StatelessWidget {
       builder: (context, provider, _) {
         return Column(
           children: [
-            // Search bar
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
@@ -119,8 +146,6 @@ class _StudentsTab extends StatelessWidget {
                 onChanged: provider.setSearchQuery,
               ),
             ),
-
-            // Student count
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
@@ -132,16 +157,13 @@ class _StudentsTab extends StatelessWidget {
                 ],
               ),
             ),
-
-            // Student list
             Expanded(
               child: provider.students.isEmpty
                   ? _emptyState(context)
                   : ListView.builder(
                       itemCount: provider.students.length,
                       itemBuilder: (context, index) {
-                        final student = provider.students[index];
-                        return _StudentTile(student: student);
+                        return _StudentTile(student: provider.students[index]);
                       },
                     ),
             ),
@@ -169,6 +191,7 @@ class _StudentsTab extends StatelessWidget {
           Text(
             'Tap the button below to add your first student',
             style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -200,7 +223,7 @@ class _StudentTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Avatar with grade letter
+              // Grade badge
               Container(
                 width: 56,
                 height: 56,
@@ -214,15 +237,14 @@ class _StudentTile extends StatelessWidget {
                     student.letterGrade,
                     style: TextStyle(
                       color: color,
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 14),
-
-              // Name and ID
+              // Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +260,6 @@ class _StudentTile extends StatelessWidget {
                       style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                     ),
                     const SizedBox(height: 6),
-                    // Progress bar
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
@@ -252,8 +273,7 @@ class _StudentTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-
-              // Average score
+              // Score + GPA
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -265,7 +285,14 @@ class _StudentTile extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  Text(
+                    'GPA ${GradeUtils.formatGpa(GradeUtils.averageGpa(student.grades.map((g) => g.score).toList()))}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -285,11 +312,6 @@ class _StudentTile extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${student.grades.length} subject(s)',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                 ],
               ),
@@ -319,11 +341,12 @@ class _DashboardTab extends StatelessWidget {
         final averages = students.map((s) => s.average).toList();
         final distribution = GradeUtils.gradeDistribution(averages);
         final classAvg = GradeUtils.classAverage(averages);
+        final classGpa = GradeUtils.averageGpa(averages);
 
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Stat cards grid
+            // Stat cards
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -340,11 +363,11 @@ class _DashboardTab extends StatelessWidget {
                   subtitle: 'Students enrolled',
                 ),
                 StatCard(
-                  title: 'AVG',
+                  title: 'CLASS AVG',
                   value: GradeUtils.formatScore(classAvg),
                   icon: Icons.analytics,
                   color: AppTheme.infoColor,
-                  subtitle: 'Class average',
+                  subtitle: 'GPA ${GradeUtils.formatGpa(classGpa)}',
                 ),
                 StatCard(
                   title: 'PASSING',
@@ -364,7 +387,7 @@ class _DashboardTab extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Pie chart
+            // Pie chart — grade distribution
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -391,7 +414,7 @@ class _DashboardTab extends StatelessWidget {
                     child: PieChart(
                       PieChartData(
                         sectionsSpace: 3,
-                        centerSpaceRadius: 45,
+                        centerSpaceRadius: 40,
                         sections: distribution.entries
                             .where((e) => e.value > 0)
                             .map((e) {
@@ -400,9 +423,9 @@ class _DashboardTab extends StatelessWidget {
                             color: color,
                             value: e.value.toDouble(),
                             title: '${e.key}\n${e.value}',
-                            radius: 60,
+                            radius: 55,
                             titleStyle: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -412,7 +435,6 @@ class _DashboardTab extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Legend
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -430,10 +452,8 @@ class _DashboardTab extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'Grade ${e.key}: ${e.value}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          Text('${e.key}: ${e.value}',
+                              style: const TextStyle(fontSize: 12)),
                         ],
                       );
                     }).toList(),
@@ -460,25 +480,39 @@ class _DashboardTab extends StatelessWidget {
               final medals = ['🥇', '🥈', '🥉'];
               final s = entry.value;
               final color = AppTheme.gradeColor(s.letterGrade);
+              final gpa =
+                  GradeUtils.averageGpa(s.grades.map((g) => g.score).toList());
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: Text(
-                    medals[entry.key],
-                    style: const TextStyle(fontSize: 24),
-                  ),
+                  leading: Text(medals[entry.key],
+                      style: const TextStyle(fontSize: 24)),
                   title: Text(s.name,
                       style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(s.studentId),
-                  trailing: Text(
-                    GradeUtils.formatScore(s.average),
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  subtitle:
+                      Text('${s.studentId} • GPA ${GradeUtils.formatGpa(gpa)}'),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        GradeUtils.formatScore(s.average),
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        s.letterGrade,
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -541,15 +575,11 @@ class _ExportSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Export Grades',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          const Text('Export Grades',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(
-            'Choose a format to export all student data',
-            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-          ),
+          Text('Choose a format to export all student data',
+              style: TextStyle(fontSize: 13, color: Colors.grey[500])),
           const SizedBox(height: 16),
           GridView.count(
             crossAxisCount: 3,

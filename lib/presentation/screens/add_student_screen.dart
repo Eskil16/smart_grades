@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/grade_utils.dart';
 import '../../data/models/student_model.dart';
 import '../../data/models/grade_model.dart';
 import '../providers/students_provider.dart';
@@ -19,18 +19,23 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   final _nameController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _emailController = TextEditingController();
-
-  // Grade form
   final _scoreController = TextEditingController();
   final _commentController = TextEditingController();
-  String _selectedSubject = AppConstants.defaultSubjects.first;
 
+  List<String> _sessionSubjects = [];
+  String? _selectedSubject;
   final List<GradeModel> _grades = [];
   bool get _isEditing => widget.existingStudent != null;
 
   @override
   void initState() {
     super.initState();
+    // Load subjects from active session
+    final session = context.read<StudentsProvider>().activeSession;
+    _sessionSubjects = session?.subjects ?? [];
+    _selectedSubject =
+        _sessionSubjects.isNotEmpty ? _sessionSubjects.first : null;
+
     if (_isEditing) {
       _nameController.text = widget.existingStudent!.name;
       _studentIdController.text = widget.existingStudent!.studentId;
@@ -50,6 +55,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   }
 
   void _addGrade() {
+    if (_selectedSubject == null) return;
     final score = double.tryParse(_scoreController.text);
     if (score == null || !GradeModel.isValidScore(score)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -60,7 +66,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     setState(() {
       _grades.add(GradeModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        subject: _selectedSubject,
+        subject: _selectedSubject!,
         score: score,
         comment:
             _commentController.text.isEmpty ? null : _commentController.text,
@@ -69,10 +75,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       _scoreController.clear();
       _commentController.clear();
     });
-  }
-
-  void _removeGrade(int index) {
-    setState(() => _grades.removeAt(index));
   }
 
   void _save() {
@@ -97,9 +99,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isEditing
-            ? '${student.name} updated successfully!'
-            : '${student.name} added successfully!'),
+        content: Text(
+            _isEditing ? '${student.name} updated!' : '${student.name} added!'),
         backgroundColor: AppTheme.successColor,
       ),
     );
@@ -123,7 +124,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Student info section
+            // ── Student Info ──────────────────────────────────
             _sectionHeader(Icons.person, 'Student Information'),
             const SizedBox(height: 12),
             TextFormField(
@@ -157,7 +158,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Grades section
+            // ── Add Grade ─────────────────────────────────────
             _sectionHeader(Icons.grade, 'Add Grades'),
             const SizedBox(height: 12),
             Card(
@@ -167,18 +168,25 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    DropdownButtonFormField<String>(
-                      value: _selectedSubject,
-                      decoration: const InputDecoration(
-                        labelText: 'Subject',
-                        prefixIcon: Icon(Icons.book_outlined),
+                    // Subject dropdown
+                    if (_sessionSubjects.isEmpty)
+                      const Text(
+                        'No subjects in this session. Edit the session to add subjects.',
+                        style: TextStyle(color: Colors.grey),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        value: _selectedSubject,
+                        decoration: const InputDecoration(
+                          labelText: 'Subject',
+                          prefixIcon: Icon(Icons.book_outlined),
+                        ),
+                        items: _sessionSubjects
+                            .map((s) =>
+                                DropdownMenuItem(value: s, child: Text(s)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedSubject = v),
                       ),
-                      items: AppConstants.defaultSubjects
-                          .map(
-                              (s) => DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedSubject = v!),
-                    ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _scoreController,
@@ -211,51 +219,24 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Added grades list
+            // ── Grades list ───────────────────────────────────
             if (_grades.isNotEmpty) ...[
               _sectionHeader(Icons.list, 'Grades Added (${_grades.length})'),
               const SizedBox(height: 8),
               ..._grades.asMap().entries.map((entry) {
                 final g = entry.value;
+                final grade = GradeUtils.letterGrade(g.score);
+                final color = AppTheme.gradeColor(grade);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: AppTheme.gradeColor(g.score >= 90
-                              ? 'A'
-                              : g.score >= 80
-                                  ? 'B'
-                                  : g.score >= 70
-                                      ? 'C'
-                                      : g.score >= 60
-                                          ? 'D'
-                                          : 'F')
-                          .withOpacity(0.2),
-                      child: Text(
-                        g.score >= 90
-                            ? 'A'
-                            : g.score >= 80
-                                ? 'B'
-                                : g.score >= 70
-                                    ? 'C'
-                                    : g.score >= 60
-                                        ? 'D'
-                                        : 'F',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.gradeColor(g.score >= 90
-                              ? 'A'
-                              : g.score >= 80
-                                  ? 'B'
-                                  : g.score >= 70
-                                      ? 'C'
-                                      : g.score >= 60
-                                          ? 'D'
-                                          : 'F'),
-                        ),
-                      ),
+                      backgroundColor: color.withOpacity(0.15),
+                      child: Text(grade,
+                          style: TextStyle(
+                              color: color, fontWeight: FontWeight.bold)),
                     ),
                     title: Text(g.subject,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -263,15 +244,27 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '${g.score}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('${g.score}',
+                                style: TextStyle(
+                                    color: color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15)),
+                            Text(
+                              'GPA ${GradeUtils.formatGpa(GradeUtils.gpaPoints(g.score))}',
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.grey[500]),
+                            ),
+                          ],
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline,
                               color: Colors.redAccent),
-                          onPressed: () => _removeGrade(entry.key),
+                          onPressed: () =>
+                              setState(() => _grades.removeAt(entry.key)),
                         ),
                       ],
                     ),
