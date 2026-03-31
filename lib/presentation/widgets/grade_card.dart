@@ -15,92 +15,171 @@ class GradeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final letter = GradeUtils.letterGrade(grade.score);
+    final letter = GradeUtils.letterGrade(grade.finalScore);
     final color = AppTheme.gradeColor(letter);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color, width: 1.5),
-          ),
-          child: Center(
-            child: Text(
-              letter,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
-          ),
-        ),
-        title: Text(
-          grade.subject,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
+            // Top row — subject + grade badge
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 12, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  '${grade.date.day}/${grade.date.month}/${grade.date.year}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color, width: 1.5),
+                  ),
+                  child: Center(
+                    child: Text(
+                      letter,
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        grade.subject,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 11, color: Colors.grey[400]),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${grade.date.day}/${grade.date.month}/${grade.date.year}',
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[400]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Final score badge
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: color.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        GradeUtils.formatScore(grade.finalScore),
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        'Final',
+                        style: TextStyle(
+                            color: color.withOpacity(0.7), fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent, size: 20),
+                    onPressed: onDelete,
+                    tooltip: 'Delete grade',
+                  ),
+                ],
               ],
             ),
-            if (grade.comment != null && grade.comment!.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                grade.comment!,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+            const SizedBox(height: 12),
+            // CC and SN breakdown
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey[200]!),
               ),
-              child: Text(
-                GradeUtils.formatScore(grade.score),
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+              child: Row(
+                children: [
+                  _scoreChip('CC (30%)', GradeUtils.formatScore(grade.ccScore),
+                      Colors.blue),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.add, size: 14, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  _scoreChip('SN (70%)', GradeUtils.formatScore(grade.snScore),
+                      Colors.indigo),
+                  const Spacer(),
+                  const Icon(Icons.drag_handle, size: 14, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  _scoreChip(
+                    'GPA',
+                    GradeUtils.formatGpa(
+                        GradeUtils.gpaPoints(grade.finalScore)),
+                    color,
+                  ),
+                ],
               ),
             ),
-            if (onDelete != null) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                onPressed: onDelete,
-                tooltip: 'Delete grade',
+            if (grade.comment != null && grade.comment!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.comment_outlined,
+                      size: 12, color: Colors.grey[400]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      grade.comment!,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _scoreChip(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey[500], fontSize: 10),
+        ),
+      ],
     );
   }
 }

@@ -19,7 +19,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   final _nameController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _emailController = TextEditingController();
-  final _scoreController = TextEditingController();
+  final _ccController = TextEditingController();
+  final _snController = TextEditingController();
   final _commentController = TextEditingController();
 
   List<String> _sessionSubjects = [];
@@ -27,10 +28,16 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   final List<GradeModel> _grades = [];
   bool get _isEditing => widget.existingStudent != null;
 
+  // Live preview of final score
+  double get _previewFinal {
+    final cc = double.tryParse(_ccController.text) ?? 0;
+    final sn = double.tryParse(_snController.text) ?? 0;
+    return (cc * 0.3) + (sn * 0.7);
+  }
+
   @override
   void initState() {
     super.initState();
-    // Load subjects from active session
     final session = context.read<StudentsProvider>().activeSession;
     _sessionSubjects = session?.subjects ?? [];
     _selectedSubject =
@@ -49,30 +56,55 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     _nameController.dispose();
     _studentIdController.dispose();
     _emailController.dispose();
-    _scoreController.dispose();
+    _ccController.dispose();
+    _snController.dispose();
     _commentController.dispose();
     super.dispose();
   }
 
   void _addGrade() {
     if (_selectedSubject == null) return;
-    final score = double.tryParse(_scoreController.text);
-    if (score == null || !GradeModel.isValidScore(score)) {
+
+    final cc = double.tryParse(_ccController.text);
+    final sn = double.tryParse(_snController.text);
+
+    if (cc == null || !GradeModel.isValidScore(cc)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid score (0–100)')),
+        const SnackBar(
+            content: Text('CC score invalide — doit être entre 0 et 100')),
       );
       return;
     }
+    if (sn == null || !GradeModel.isValidScore(sn)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('SN score invalide — doit être entre 0 et 100')),
+      );
+      return;
+    }
+
+    // Check if subject already added
+    if (_grades.any((g) => g.subject == _selectedSubject)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '$_selectedSubject already added. Delete it first to update.')),
+      );
+      return;
+    }
+
     setState(() {
       _grades.add(GradeModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         subject: _selectedSubject!,
-        score: score,
+        ccScore: cc,
+        snScore: sn,
         comment:
             _commentController.text.isEmpty ? null : _commentController.text,
         date: DateTime.now(),
       ));
-      _scoreController.clear();
+      _ccController.clear();
+      _snController.clear();
       _commentController.clear();
     });
   }
@@ -99,8 +131,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-            _isEditing ? '${student.name} updated!' : '${student.name} added!'),
+        content: Text(_isEditing
+            ? '${student.name} mis à jour!'
+            : '${student.name} ajouté!'),
         backgroundColor: AppTheme.successColor,
       ),
     );
@@ -159,7 +192,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             const SizedBox(height: 24),
 
             // ── Add Grade ─────────────────────────────────────
-            _sectionHeader(Icons.grade, 'Add Grades'),
+            _sectionHeader(Icons.grade, 'Add Grade per Subject'),
             const SizedBox(height: 12),
             Card(
               shape: RoundedRectangleBorder(
@@ -171,7 +204,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     // Subject dropdown
                     if (_sessionSubjects.isEmpty)
                       const Text(
-                        'No subjects in this session. Edit the session to add subjects.',
+                        'No subjects in this session.',
                         style: TextStyle(color: Colors.grey),
                       )
                     else
@@ -188,15 +221,72 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                         onChanged: (v) => setState(() => _selectedSubject = v),
                       ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _scoreController,
-                      decoration: const InputDecoration(
-                        labelText: 'Score (0–100)',
-                        prefixIcon: Icon(Icons.score_outlined),
-                      ),
-                      keyboardType: TextInputType.number,
+
+                    // CC and SN fields side by side
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _ccController,
+                            decoration: const InputDecoration(
+                              labelText: 'CC (0–100)',
+                              prefixIcon: Icon(Icons.edit_note),
+                              helperText: '30% of final',
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _snController,
+                            decoration: const InputDecoration(
+                              labelText: 'SN (0–100)',
+                              prefixIcon: Icon(Icons.assignment),
+                              helperText: '70% of final',
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
+
+                    // Live preview
+                    if (_ccController.text.isNotEmpty ||
+                        _snController.text.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.07),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Preview: (${_ccController.text.isEmpty ? '0' : _ccController.text} × 30%) + (${_snController.text.isEmpty ? '0' : _snController.text} × 70%)',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[600]),
+                            ),
+                            Text(
+                              '= ${GradeUtils.formatScore(_previewFinal)}  ${GradeUtils.letterGrade(_previewFinal)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.gradeColor(
+                                    GradeUtils.letterGrade(_previewFinal)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
                     TextFormField(
                       controller: _commentController,
                       decoration: const InputDecoration(
@@ -225,7 +315,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               const SizedBox(height: 8),
               ..._grades.asMap().entries.map((entry) {
                 final g = entry.value;
-                final grade = GradeUtils.letterGrade(g.score);
+                final grade = GradeUtils.letterGrade(g.finalScore);
                 final color = AppTheme.gradeColor(grade);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -240,25 +330,19 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     ),
                     title: Text(g.subject,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(g.comment ?? ''),
+                    subtitle: Text(
+                      'CC: ${g.ccScore} | SN: ${g.snScore} | Final: ${GradeUtils.formatScore(g.finalScore)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('${g.score}',
-                                style: TextStyle(
-                                    color: color,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15)),
-                            Text(
-                              'GPA ${GradeUtils.formatGpa(GradeUtils.gpaPoints(g.score))}',
-                              style: TextStyle(
-                                  fontSize: 10, color: Colors.grey[500]),
-                            ),
-                          ],
+                        Text(
+                          'GPA ${GradeUtils.formatGpa(GradeUtils.gpaPoints(g.finalScore))}',
+                          style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline,
