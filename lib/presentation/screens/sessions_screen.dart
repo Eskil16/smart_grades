@@ -19,13 +19,15 @@ class SessionsScreen extends StatelessWidget {
       ),
       body: Consumer<StudentsProvider>(
         builder: (context, provider, _) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final sessions = provider.sessions;
           return sessions.isEmpty
               ? _emptyState(context)
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    // Header
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Text(
@@ -120,7 +122,6 @@ class _SessionCard extends StatelessWidget {
               // Top row
               Row(
                 children: [
-                  // Color indicator
                   Container(
                     width: 52,
                     height: 52,
@@ -180,6 +181,12 @@ class _SessionCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Delete button
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
+                    onPressed: () => _confirmDelete(context, provider, session),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -190,30 +197,17 @@ class _SessionCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
+                  _statChip(Icons.people_outline, '${session.totalStudents}',
+                      'Students', AppTheme.primaryColor),
                   _statChip(
-                    Icons.people_outline,
-                    '${session.totalStudents}',
-                    'Students',
-                    AppTheme.primaryColor,
-                  ),
-                  _statChip(
-                    Icons.check_circle_outline,
-                    '${session.passingStudents}',
-                    'Passing',
-                    AppTheme.successColor,
-                  ),
-                  _statChip(
-                    Icons.cancel_outlined,
-                    '${session.failingStudents}',
-                    'Failing',
-                    AppTheme.errorColor,
-                  ),
-                  _statChip(
-                    Icons.book_outlined,
-                    '${session.subjects.length}',
-                    'Subjects',
-                    AppTheme.infoColor,
-                  ),
+                      Icons.check_circle_outline,
+                      '${session.passingStudents}',
+                      'Passing',
+                      AppTheme.successColor),
+                  _statChip(Icons.cancel_outlined, '${session.failingStudents}',
+                      'Failing', AppTheme.errorColor),
+                  _statChip(Icons.book_outlined, '${session.subjects.length}',
+                      'Subjects', AppTheme.infoColor),
                 ],
               ),
 
@@ -266,6 +260,33 @@ class _SessionCard extends StatelessWidget {
                 color: color, fontWeight: FontWeight.bold, fontSize: 16)),
         Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
       ],
+    );
+  }
+
+  void _confirmDelete(BuildContext context, StudentsProvider provider,
+      ClassSessionModel session) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Session'),
+        content: Text(
+            'Delete "${session.name}"? All students and grades will be lost.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              provider.deleteSession(session.id);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

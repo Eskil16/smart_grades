@@ -160,6 +160,14 @@ class StudentDetailScreen extends StatelessWidget {
                 style: TextStyle(
                     color: Colors.white.withOpacity(0.85), fontSize: 12),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'GPA ${GradeUtils.formatGpa(student.gpa)}',
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+              ),
             ],
           ),
         ],
@@ -211,7 +219,7 @@ class StudentDetailScreen extends StatelessWidget {
     );
   }
 
-  // ── Bar chart ─────────────────────────────────────────────────
+  // ── Bar chart — shows CC, SN, Final per subject ───────────────
   Widget _barChart(StudentModel student) {
     final grades = student.grades;
     return Container(
@@ -234,14 +242,38 @@ class StudentDetailScreen extends StatelessWidget {
             'Grade Overview',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 8),
+          // Legend
+          Row(
+            children: [
+              _legendDot(Colors.blue, 'CC (30%)'),
+              const SizedBox(width: 16),
+              _legendDot(Colors.indigo, 'SN (70%)'),
+              const SizedBox(width: 16),
+              _legendDot(AppTheme.primaryColor, 'Final'),
+            ],
+          ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 200,
+            height: 220,
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
                 maxY: 100,
-                barTouchData: BarTouchData(enabled: true),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final g = grades[groupIndex];
+                      final labels = ['CC', 'SN', 'Final'];
+                      final values = [g.ccScore, g.snScore, g.finalScore];
+                      return BarTooltipItem(
+                        '${labels[rodIndex]}: ${GradeUtils.formatScore(values[rodIndex])}',
+                        const TextStyle(color: Colors.white, fontSize: 12),
+                      );
+                    },
+                  ),
+                ),
                 titlesData: FlTitlesData(
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
@@ -264,8 +296,10 @@ class StudentDetailScreen extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            grades[i].subject.substring(0, 3),
-                            style: const TextStyle(fontSize: 10),
+                            grades[i].subject.length > 4
+                                ? grades[i].subject.substring(0, 4)
+                                : grades[i].subject,
+                            style: const TextStyle(fontSize: 9),
                           ),
                         );
                       },
@@ -286,17 +320,33 @@ class StudentDetailScreen extends StatelessWidget {
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: grades.asMap().entries.map((entry) {
-                  final color = AppTheme.gradeColor(
-                      GradeUtils.letterGrade(entry.value.score));
+                  final g = entry.value;
+                  final finalColor =
+                      AppTheme.gradeColor(GradeUtils.letterGrade(g.finalScore));
                   return BarChartGroupData(
                     x: entry.key,
+                    groupVertically: false,
                     barRods: [
                       BarChartRodData(
-                        toY: entry.value.score,
-                        color: color,
-                        width: 18,
+                        toY: g.ccScore,
+                        color: Colors.blue,
+                        width: 10,
                         borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(6)),
+                            top: Radius.circular(4)),
+                      ),
+                      BarChartRodData(
+                        toY: g.snScore,
+                        color: Colors.indigo,
+                        width: 10,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4)),
+                      ),
+                      BarChartRodData(
+                        toY: g.finalScore,
+                        color: finalColor,
+                        width: 10,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4)),
                       ),
                     ],
                   );
@@ -306,6 +356,22 @@ class StudentDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _legendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(3)),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+      ],
     );
   }
 
@@ -367,7 +433,7 @@ class StudentDetailScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Student'),
         content: Text(
-            'Are you sure you want to delete ${student.name}? This action cannot be undone.'),
+            'Are you sure you want to delete ${student.name}? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -380,7 +446,7 @@ class StudentDetailScreen extends StatelessWidget {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

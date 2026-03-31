@@ -16,15 +16,19 @@ class StudentModel {
     this.grades = const [],
   });
 
-  // Computed properties using functional utils
-  double get average => GradeUtils.average(grades.map((g) => g.score).toList());
-  double get highest => GradeUtils.highest(grades.map((g) => g.score).toList());
-  double get lowest => GradeUtils.lowest(grades.map((g) => g.score).toList());
+  // Computed properties using finalScore
+  double get average =>
+      GradeUtils.average(grades.map((g) => g.finalScore).toList());
+  double get highest =>
+      GradeUtils.highest(grades.map((g) => g.finalScore).toList());
+  double get lowest =>
+      GradeUtils.lowest(grades.map((g) => g.finalScore).toList());
+  double get gpa =>
+      GradeUtils.averageGpa(grades.map((g) => g.finalScore).toList());
   String get letterGrade => GradeUtils.letterGrade(average);
   bool get isPassing =>
-      GradeUtils.isPassing(grades.map((g) => g.score).toList());
+      GradeUtils.isPassing(grades.map((g) => g.finalScore).toList());
 
-  // Copy with updated fields
   StudentModel copyWith({
     String? id,
     String? name,
@@ -40,27 +44,28 @@ class StudentModel {
         grades: grades ?? this.grades,
       );
 
-  // Add a grade (returns new instance — immutable pattern)
   StudentModel addGrade(GradeModel grade) =>
       copyWith(grades: [...grades, grade]);
 
-  // Remove a grade by id
   StudentModel removeGrade(String gradeId) =>
       copyWith(grades: grades.where((g) => g.id != gradeId).toList());
 
-  // Convert to Map (for export)
+  StudentModel updateGrade(GradeModel updated) => copyWith(
+        grades: grades.map((g) => g.id == updated.id ? updated : g).toList(),
+      );
+
   Map<String, dynamic> toMap() => {
         'id': id,
         'name': name,
         'studentId': studentId,
         'email': email ?? '',
         'average': average,
+        'gpa': gpa,
         'letterGrade': letterGrade,
         'isPassing': isPassing,
         'grades': grades.map((g) => g.toMap()).toList(),
       };
 
-  // Create from Map
   factory StudentModel.fromMap(Map<String, dynamic> map) => StudentModel(
         id: map['id'] as String,
         name: map['name'] as String,
@@ -72,5 +77,6 @@ class StudentModel {
       );
 
   @override
-  String toString() => 'StudentModel(name: $name, average: $average)';
+  String toString() =>
+      'StudentModel(name: $name, average: $average, gpa: $gpa)';
 }
