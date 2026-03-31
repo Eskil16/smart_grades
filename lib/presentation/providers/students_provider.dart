@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import '../../data/models/class_session_model.dart';
 import '../../data/models/student_model.dart';
 import '../../data/models/grade_model.dart';
+import '../../data/services/local_storage_service.dart';
 import '../../core/constants/app_constants.dart';
 
 class StudentsProvider extends ChangeNotifier {
   final List<ClassSessionModel> _sessions = [];
   String? _activeSessionId;
   String _searchQuery = '';
+  bool _isLoading = true;
+
+  bool get isLoading => _isLoading;
 
   // ── Session getters ──────────────────────────────────────────
   List<ClassSessionModel> get sessions => List.unmodifiable(_sessions);
@@ -23,17 +27,35 @@ class StudentsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Persistence ──────────────────────────────────────────────
+  Future<void> loadFromStorage() async {
+    _isLoading = true;
+    notifyListeners();
+    final saved = await LocalStorageService.loadSessions();
+    _sessions.clear();
+    _sessions.addAll(saved);
+    if (_sessions.isNotEmpty) _activeSessionId = _sessions.first.id;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> _save() async {
+    await LocalStorageService.saveSessions(_sessions);
+  }
+
   // ── Session CRUD ─────────────────────────────────────────────
   void addSession(ClassSessionModel session) {
     _sessions.add(session);
     _activeSessionId ??= session.id;
     notifyListeners();
+    _save();
   }
 
   void updateSession(ClassSessionModel updated) {
     final i = _sessions.indexWhere((s) => s.id == updated.id);
     if (i != -1) _sessions[i] = updated;
     notifyListeners();
+    _save();
   }
 
   void deleteSession(String id) {
@@ -42,6 +64,7 @@ class StudentsProvider extends ChangeNotifier {
       _activeSessionId = _sessions.isEmpty ? null : _sessions.first.id;
     }
     notifyListeners();
+    _save();
   }
 
   // ── Subject management ───────────────────────────────────────
@@ -49,12 +72,14 @@ class StudentsProvider extends ChangeNotifier {
     final i = _sessions.indexWhere((s) => s.id == sessionId);
     if (i != -1) _sessions[i] = _sessions[i].addSubject(subject);
     notifyListeners();
+    _save();
   }
 
   void removeSubjectFromSession(String sessionId, String subject) {
     final i = _sessions.indexWhere((s) => s.id == sessionId);
     if (i != -1) _sessions[i] = _sessions[i].removeSubject(subject);
     notifyListeners();
+    _save();
   }
 
   // ── Student getters ──────────────────────────────────────────
@@ -72,8 +97,9 @@ class StudentsProvider extends ChangeNotifier {
 
   Map<String, dynamic> get stats {
     final session = activeSession;
-    if (session == null)
+    if (session == null) {
       return {'total': 0, 'passing': 0, 'failing': 0, 'classAverage': 0.0};
+    }
     return {
       'total': session.totalStudents,
       'passing': session.passingStudents,
@@ -95,18 +121,21 @@ class StudentsProvider extends ChangeNotifier {
     final i = _sessions.indexWhere((s) => s.id == _activeSessionId);
     if (i != -1) _sessions[i] = _sessions[i].addStudent(student);
     notifyListeners();
+    _save();
   }
 
   void updateStudent(StudentModel student) {
     final i = _sessions.indexWhere((s) => s.id == _activeSessionId);
     if (i != -1) _sessions[i] = _sessions[i].updateStudent(student);
     notifyListeners();
+    _save();
   }
 
   void deleteStudent(String id) {
     final i = _sessions.indexWhere((s) => s.id == _activeSessionId);
     if (i != -1) _sessions[i] = _sessions[i].removeStudent(id);
     notifyListeners();
+    _save();
   }
 
   // ── Grade CRUD ───────────────────────────────────────────────
@@ -127,100 +156,4 @@ class StudentsProvider extends ChangeNotifier {
   }
 
   String get searchQuery => _searchQuery;
-
-  // ── Sample data ──────────────────────────────────────────────
-  void loadSampleData() {
-    final session1 = ClassSessionModel(
-      id: '1',
-      name: 'IRT 3A — Morning',
-      description: 'Information & Communication Technology',
-      academicYear: '2025/2026',
-      subjects: [...AppConstants.defaultSubjects],
-      createdAt: DateTime.now(),
-      students: [
-        StudentModel(
-          id: 's1',
-          name: 'Alice Mbarga',
-          studentId: 'STU001',
-          email: 'alice@example.com',
-          grades: [
-            GradeModel(
-                id: 'g1',
-                subject: 'Mathematics',
-                score: 85,
-                date: DateTime.now()),
-            GradeModel(
-                id: 'g2', subject: 'Physics', score: 72, date: DateTime.now()),
-            GradeModel(
-                id: 'g3', subject: 'English', score: 55, date: DateTime.now()),
-          ],
-        ),
-        StudentModel(
-          id: 's2',
-          name: 'Bob Ngono',
-          studentId: 'STU002',
-          email: 'bob@example.com',
-          grades: [
-            GradeModel(
-                id: 'g4',
-                subject: 'Mathematics',
-                score: 43,
-                date: DateTime.now()),
-            GradeModel(
-                id: 'g5', subject: 'Physics', score: 38, date: DateTime.now()),
-            GradeModel(
-                id: 'g6', subject: 'English', score: 61, date: DateTime.now()),
-          ],
-        ),
-        StudentModel(
-          id: 's3',
-          name: 'Claire Nkomo',
-          studentId: 'STU003',
-          grades: [
-            GradeModel(
-                id: 'g7',
-                subject: 'Mathematics',
-                score: 92,
-                date: DateTime.now()),
-            GradeModel(
-                id: 'g8', subject: 'Physics', score: 88, date: DateTime.now()),
-            GradeModel(
-                id: 'g9', subject: 'English', score: 76, date: DateTime.now()),
-          ],
-        ),
-      ],
-    );
-
-    final session2 = ClassSessionModel(
-      id: '2',
-      name: 'IRT 3B — Afternoon',
-      description: 'Information & Communication Technology',
-      academicYear: '2025/2026',
-      subjects: [...AppConstants.defaultSubjects],
-      createdAt: DateTime.now(),
-      students: [
-        StudentModel(
-          id: 's4',
-          name: 'David Eto',
-          studentId: 'STU004',
-          grades: [
-            GradeModel(
-                id: 'g10',
-                subject: 'Algorithms',
-                score: 78,
-                date: DateTime.now()),
-            GradeModel(
-                id: 'g11',
-                subject: 'Networking',
-                score: 65,
-                date: DateTime.now()),
-          ],
-        ),
-      ],
-    );
-
-    _sessions.addAll([session1, session2]);
-    _activeSessionId = session1.id;
-    notifyListeners();
-  }
 }

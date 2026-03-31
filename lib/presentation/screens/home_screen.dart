@@ -286,7 +286,7 @@ class _StudentTile extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'GPA ${GradeUtils.formatGpa(GradeUtils.averageGpa(student.grades.map((g) => g.score).toList()))}',
+                    'GPA ${GradeUtils.formatGpa(GradeUtils.averageGpa(student.grades.map((g) => g.finalScore).toList()))}',
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[500],
@@ -480,8 +480,8 @@ class _DashboardTab extends StatelessWidget {
               final medals = ['🥇', '🥈', '🥉'];
               final s = entry.value;
               final color = AppTheme.gradeColor(s.letterGrade);
-              final gpa =
-                  GradeUtils.averageGpa(s.grades.map((g) => g.score).toList());
+              final gpa = GradeUtils.averageGpa(
+                  s.grades.map((g) => g.finalScore).toList());
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 shape: RoundedRectangleBorder(
